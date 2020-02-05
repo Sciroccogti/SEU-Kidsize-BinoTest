@@ -19,6 +19,8 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/core/utility.hpp"
+#include <opencv2/stitching.hpp>
+
 #include "mynteye/api/api.h"
 #include "mynteye/device/device.h"
 
@@ -29,6 +31,14 @@ int main(int argc, char *argv[])
     const int width = 640;
     const int height = 400;
     const int channel = 1;
+
+    struct yolo
+    {
+        int x = 50;
+        int y = 50;
+        int w = 100;
+        int h = 100;
+    } ball_dets;
 
     std::shared_ptr<mynteye::API> api;
     api = API::Create(argc, argv);
@@ -55,9 +65,11 @@ int main(int argc, char *argv[])
                                                           1, preFC, 10, 100, 32,
                                                           cv::StereoSGBM::MODE_SGBM);
 
+    // cv::Stitcher stit = cv::Stitcher::createDefault(true);
+
     // bool ok;
     // auto &&request = api->SelectStreamRequest(&ok); // ask user to select a stream
-    const StreamRequest request = StreamRequest(2 * width, height, Format::YUYV, 30);
+    const StreamRequest request = StreamRequest(2 * width, height, Format::YUYV, 60);
 
     // if (!ok) return 1;
     api->ConfigStreamRequest(request);
@@ -83,7 +95,7 @@ int main(int argc, char *argv[])
     double t = 0.01;
     // std::cout << "fps:" << std::endl;
 
-    cv::namedWindow("frame");
+    // cv::namedWindow("frame");
 
     // cv::namedWindow("disparity_normalized");
 
@@ -103,11 +115,49 @@ int main(int argc, char *argv[])
             fps = 1.0 / (t_c - t);
             printf("\r%02.2f", fps);
             t = t_c;
-            cv::hconcat(left_data.frame, right_data.frame, img);
-            cv::imshow("frame", img);
+            cv::rectangle(left_data.frame, cv::Point(ball_dets.x, ball_dets.y),
+                          cv::Point(ball_dets.x + ball_dets.w, ball_dets.y + ball_dets.h),
+                          cv::Scalar(0, 0, 255));
 
-            sgbm->compute(left_data.frame, right_data.frame, disp);
-            disp.convertTo(disp8, CV_8U, 255/(nDisp*16.));
+            // cv::Rect left_rect()
+            cv::Mat mask_left = cv::Mat::zeros(left_data.frame.size(), CV_8UC1);
+            cv::Rect roi_left;
+            roi_left.x = (ball_dets.x - SADWin / 2) >= 0 ? (ball_dets.x - SADWin / 2) : 0;
+            roi_left.y = (ball_dets.y - SADWin / 2) >= 0 ? (ball_dets.x - SADWin / 2) : 0;
+            roi_left.width = ball_dets.w + SADWin;
+            roi_left.width = (roi_left.width + roi_left.x) < width ? roi_left.width : (width - roi_left.width);
+            roi_left.height = ball_dets.h + SADWin;
+            roi_left.height = (roi_left.height + roi_left.y) < height ? roi_left.height : (height - roi_left.height);
+            mask_left(roi_left).setTo(255);
+            left_data.frame.copyTo(img, mask_left);
+            cv::imshow("left", img);
+
+            cv::Mat mask_right = cv::Mat::zeros(right_data.frame.size(), CV_8UC1);
+            cv::Rect roi_right = roi_left;
+            roi_right.width = width - roi_right.x;
+            mask_right(roi_right).setTo(255);
+            cv::Mat img2;
+            right_data.frame.copyTo(img2, mask_right);
+            cv::imshow("right", img2);
+            // cv::hconcat(left_data.frame, right_data.frame, img);
+
+            // cv::Rect left_rect(0, 0, width * 2 / 3, height);
+            // cv::Rect right_rect(width / 3, 0, width * 2 / 3, height);
+            // cv::Mat img_l = left_data.frame(left_rect);
+            // cv::Mat img_r = right_data.frame(right_rect);
+            // cv::hconcat(left_data.frame, img_r, img);
+            // std::vector<cv::Mat> imgs;
+            // imgs.push_back(left_data.frame);
+            // imgs.push_back(right_data.frame);
+            // cv::Stitcher::Status status = stit.stitch(imgs, img);
+            // if (status == cv::Stitcher::OK)
+            // {
+            // cv::imshow("frame", img);
+            // }
+            // imgs.clear();
+
+            sgbm->compute(img, img2, disp);
+            disp.convertTo(disp8, CV_8U, 255 / (nDisp * 16.));
             cv::imshow("disp", disp8);
         }
 
