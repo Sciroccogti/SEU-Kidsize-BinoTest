@@ -13,6 +13,7 @@
 // limitations under the License.
 #include <stdio.h>
 #include <iostream>
+#include <vector>
 // #include <opencv2/highgui/highgui.hpp>
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/imgproc.hpp"
@@ -26,10 +27,11 @@
 
 MYNTEYE_USE_NAMESPACE
 
+const int width = 640;
+const int height = 400;
+
 int main(int argc, char *argv[])
 {
-    const int width = 640;
-    const int height = 400;
 
     struct yolo
     {
@@ -116,10 +118,42 @@ int main(int argc, char *argv[])
             cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
             cv::rectangle(disp8, roi, cv::Scalar(255, 255, 255), 2);
             cv::imshow("depth_real", disp8); // CV_16UC1
-
-            cv::Mat mask = cv::Mat::zeros(depth_data.frame.size(), CV_8UC1);
-            mask(roi).setTo(1); // 为1的地方，计算出image中所有元素的均值，为0 的地方，不计算
-            printf("distance = %d mm\n", (int)cv::mean(depth_data.frame(roi))[0]);
+            cv::Mat depth_cop;
+            depth_data.frame(roi).convertTo(depth_cop, CV_32F);
+            cv::Mat depth_cop2 = depth_cop.reshape(1, 1);
+            // cv::Mat depth_cop2 = depth_cop.clone();
+            // printf("%d %d\n", depth_cop.rows, depth_cop.cols);
+            std::vector<float> depth_vector = (std::vector<float>)(depth_cop2);
+            // printf("%d\n", depth_vector.size());
+            // depth_cop.resize(ball_dets.w * ball_dets.h);
+            cv::Mat labels;
+            std::vector<int> centers;
+            // kmeans 只接收CV_32F
+            cv::kmeans(depth_vector, 3, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
+            printf("%d %d %d\n", centers[0], centers[1], centers[2]);
+            int i, count[3] = {0, 0, 0};
+            for (i = 0; i < ball_dets.w * ball_dets.h; i++)
+            {
+                count[labels.data[i]]++;
+            }
+            int maxIDX;
+            if(count[0] >= count[1] && count[0] >= count[2])
+            {
+                maxIDX = 0;
+            }
+            else if(count[1] >= count[2])
+            {
+                maxIDX = 1;
+            }
+            else
+            {
+                maxIDX = 2;
+            }
+            
+            // // int var = Cluster(depth_cop, 7000, 0);
+            printf("distance = %d mm\n", centers[maxIDX]);
+            // break;
+            // printf("mean = %d\n", (int)cv::mean(depth_data.frame(roi))[0]);
             // cv::minMaxIdx(disp, &min, &max);
             // for (int i = 0; i < height; i++)
             // {
