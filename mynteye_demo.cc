@@ -120,38 +120,56 @@ int main(int argc, char *argv[])
             cv::imshow("depth_real", disp8); // CV_16UC1
             cv::Mat depth_cop;
             depth_data.frame(roi).convertTo(depth_cop, CV_32F);
+
             cv::Mat depth_cop2 = depth_cop.reshape(1, 1);
-            // cv::Mat depth_cop2 = depth_cop.clone();
-            // printf("%d %d\n", depth_cop.rows, depth_cop.cols);
-            std::vector<float> depth_vector = (std::vector<float>)(depth_cop2);
+            std::vector<float> depth_vector0 = (std::vector<float>)(depth_cop2);
+
+            int i, count[2] = {0, 0}, var;
+
+            std::vector<float> depth_vector;
+            float tmp;
+            for (i = 0; i < ball_dets.w * ball_dets.h; i++)
+            {
+                // tmp = depth_cop.data[i];
+                tmp = depth_vector0[i];
+                if ((int)tmp != 0)
+                    depth_vector.push_back(tmp);
+            }
+
             // printf("%d\n", depth_vector.size());
             // depth_cop.resize(ball_dets.w * ball_dets.h);
             cv::Mat labels;
             std::vector<int> centers;
             // kmeans 只接收CV_32F
-            cv::kmeans(depth_vector, 3, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
-            printf("%d %d %d\n", centers[0], centers[1], centers[2]);
-            int i, count[3] = {0, 0, 0};
-            for (i = 0; i < ball_dets.w * ball_dets.h; i++)
+            if (!depth_vector.size())
             {
-                count[labels.data[i]]++;
-            }
-            int maxIDX;
-            if(count[0] >= count[1] && count[0] >= count[2])
-            {
-                maxIDX = 0;
-            }
-            else if(count[1] >= count[2])
-            {
-                maxIDX = 1;
+                var = 0;
             }
             else
             {
-                maxIDX = 2;
+                cv::kmeans(depth_vector, 2, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
+
+                for (i = 0; i < depth_vector.size(); i++)
+                {
+                    count[labels.data[i]]++;
+                }
+                printf("1=%d, %d 2=%d, %d\n", centers[0], count[0], centers[1], count[1]);
+                if (count[0] >= count[1]) //&& count[0] >= count[2])
+                {
+                    var = centers[0];
+                }
+                else //if(count[1] >= count[2])
+                {
+                    var = centers[1];
+                }
+                // else
+                // {
+                //     maxIDX = 2;
+                // }
             }
-            
+
             // // int var = Cluster(depth_cop, 7000, 0);
-            printf("distance = %d mm\n", centers[maxIDX]);
+            printf("distance = %d mm\n", var);
             // break;
             // printf("mean = %d\n", (int)cv::mean(depth_data.frame(roi))[0]);
             // cv::minMaxIdx(disp, &min, &max);
