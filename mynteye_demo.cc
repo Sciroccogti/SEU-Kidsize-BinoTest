@@ -31,6 +31,14 @@ int main(int argc, char *argv[])
     const int width = 640;
     const int height = 400;
 
+    struct yolo
+    {
+        int x = 140;
+        int y = 50;
+        int w = 100;
+        int h = 100;
+    } ball_dets;
+
     std::shared_ptr<mynteye::API> api;
     api = API::Create(argc, argv);
 
@@ -48,7 +56,7 @@ int main(int argc, char *argv[])
     api->EnableStreamData(Stream::LEFT_RECTIFIED);
     api->EnableStreamData(Stream::RIGHT_RECTIFIED);
     api->SetDisparityComputingMethodType(DisparityComputingMethod::BM);
-    api->EnableStreamData(Stream::DISPARITY_NORMALIZED);
+    // api->EnableStreamData(Stream::DISPARITY_NORMALIZED);
     api->EnableStreamData(Stream::DEPTH);
     api->Start(Source::VIDEO_STREAMING);
 
@@ -99,15 +107,35 @@ int main(int argc, char *argv[])
         auto &&depth_data = api->GetStreamData(Stream::DEPTH);
         if (!depth_data.frame.empty())
         {
-            double t_c = cv::getTickCount() / cv::getTickFrequency();
-            fps = 1.0 / (t_c - t);
-            printf("%02.2f\n", fps);
-            t = t_c;
-            cv::convertScaleAbs(depth_data.frame, disp, -0.1);
-            cv::applyColorMap(disp, disp, cv::COLORMAP_JET);
-            cv::imshow("depth_real", disp); // CV_16UC1
+            // double t_c = cv::getTickCount() / cv::getTickFrequency();
+            // fps = 1.0 / (t_c - t);
+            // printf("%02.2f\n", fps);
+            // t = t_c;
+            cv::convertScaleAbs(depth_data.frame, disp, 7000.0 / 65535); // 截取5m以内
+            cv::applyColorMap(disp, disp8, cv::COLORMAP_JET);
+            cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
+            cv::rectangle(disp8, roi, cv::Scalar(255, 255, 255), 2);
+            cv::imshow("depth_real", disp8); // CV_16UC1
+
+            cv::Mat mask = cv::Mat::zeros(depth_data.frame.size(), CV_8UC1);
+            mask(roi).setTo(1); // 为1的地方，计算出image中所有元素的均值，为0 的地方，不计算
+            printf("distance = %d mm\n", (int)cv::mean(depth_data.frame(roi))[0]);
+            // cv::minMaxIdx(disp, &min, &max);
+            // for (int i = 0; i < height; i++)
+            // {
+            //     for (int j = 0; j < width; j++)
+            //     {
+            //         tmp = depth_data.frame.at<uchar>(i, j);
+            //         max = tmp > max ? tmp : max;
+            //         min = tmp < min ? tmp : min;
+            //     }
+            // }
+            // printf("%lf %lf\n", min, max);
         }
 
+        cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
+
+        // printf("%3d\n", tmp);
         char key = static_cast<char>(cv::waitKey(1));
         if (key == 27 || key == 'q' || key == 'Q')
         { // ESC/Q
