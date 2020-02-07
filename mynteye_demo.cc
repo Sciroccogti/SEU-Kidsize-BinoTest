@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <stdio.h>
-#include <iostream>
+// #include <iostream>
 #include <vector>
 // #include <opencv2/highgui/highgui.hpp>
-#include "opencv2/calib3d/calib3d.hpp"
+// #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/imgproc.hpp"
-#include "opencv2/imgcodecs.hpp"
+
+// #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
-#include "opencv2/core/utility.hpp"
-#include <opencv2/stitching.hpp>
+// #include "opencv2/core/utility.hpp"
+// #include <opencv2/stitching.hpp>
 
 #include "mynteye/api/api.h"
-#include "mynteye/device/device.h"
+#include "mynteye/device/context.h"
 
 MYNTEYE_USE_NAMESPACE
 
@@ -40,9 +41,14 @@ int main(int argc, char *argv[])
         int w = 100;
         int h = 100;
     } ball_dets;
+    // std::shared_ptr<Device> device = nullptr;
 
+    Context context;
+    auto &&devices = context.devices();
+    size_t n = devices.size();
+    auto &&device = devices[0];
     std::shared_ptr<mynteye::API> api;
-    api = API::Create(argc, argv);
+    api = API::Create(device);
 
     if (!api)
         return 1;
@@ -92,7 +98,6 @@ int main(int argc, char *argv[])
         cv::Mat img, disp, disp8;
         if (!left_data.frame.empty() && !right_data.frame.empty())
         {
-
             cv::hconcat(left_data.frame, right_data.frame, img);
             cv::imshow("frame", img);
         }
