@@ -109,51 +109,51 @@ int main(int argc, char *argv[])
         auto &&depth_data = api->GetStreamData(Stream::DEPTH);
         if (!depth_data.frame.empty())
         {
-            // double t_c = cv::getTickCount() / cv::getTickFrequency();
-            // fps = 1.0 / (t_c - t);
+
             // printf("%02.2f\n", fps);
-            // t = t_c;
             cv::convertScaleAbs(depth_data.frame, disp, 7000.0 / 65535); // 截取5m以内
             cv::applyColorMap(disp, disp8, cv::COLORMAP_JET);
             cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
             cv::rectangle(disp8, roi, cv::Scalar(255, 255, 255), 2);
             cv::imshow("depth_real", disp8); // CV_16UC1
-            cv::Mat depth_cop;
-            depth_data.frame(roi).convertTo(depth_cop, CV_32F);
+            cv::Mat depth_cop = depth_data.frame(roi);
+            // depth_data.frame(roi).convertTo(depth_cop, CV_32F);
 
-            cv::Mat depth_cop2 = depth_cop.reshape(1, 1);
-            std::vector<float> depth_vector0 = (std::vector<float>)(depth_cop2);
+            // cv::Mat depth_cop2 = depth_cop.reshape(1, 1);
+            // std::vector<float> depth_vector0 = (std::vector<float>)(depth_cop2);
 
-            int i, count[2] = {0, 0}, var;
+            int i, j, count[2] = {0, 0}, var;
 
             std::vector<float> depth_vector;
             float tmp;
-            for (i = 0; i < ball_dets.w * ball_dets.h; i++)
-            {
-                // tmp = depth_cop.data[i];
-                tmp = depth_vector0[i];
-                if ((int)tmp != 0)
-                    depth_vector.push_back(tmp);
-            }
+            for (i = 0; i < ball_dets.h; i++)
+                for (j = 0; j < ball_dets.w; j++)
+                {
+                    tmp = (float)depth_cop.at<ushort>(i, j);
+                    // printf("%f ", tmp);
+                    // tmp = depth_vector0[i];
+                    if ((int)tmp != 0)
+                        depth_vector.push_back(tmp);
+                }
 
-            // printf("%d\n", depth_vector.size());
+            // printf("%d ", depth_vector.size());
             // depth_cop.resize(ball_dets.w * ball_dets.h);
             cv::Mat labels;
             std::vector<int> centers;
-            // kmeans 只接收CV_32F
-            if (!depth_vector.size())
+            if (depth_vector.size() < 2) // N < K 时
             {
                 var = 0;
             }
             else
             {
+                // kmeans 只接收CV_32F
                 cv::kmeans(depth_vector, 2, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
 
                 for (i = 0; i < depth_vector.size(); i++)
                 {
                     count[labels.data[i]]++;
                 }
-                printf("1=%d, %d 2=%d, %d\n", centers[0], count[0], centers[1], count[1]);
+                // printf("1=%d, %d 2=%d, %d\n", centers[0], count[0], centers[1], count[1]);
                 if (count[0] >= count[1]) //&& count[0] >= count[2])
                 {
                     var = centers[0];
@@ -169,7 +169,10 @@ int main(int argc, char *argv[])
             }
 
             // // int var = Cluster(depth_cop, 7000, 0);
-            printf("distance = %d mm\n", var);
+            double t_c = cv::getTickCount() / cv::getTickFrequency();
+            fps = 1.0 / (t_c - t);
+            printf("\ndistance = %4d mm, fps = %3f", var, fps);
+            t = t_c;
             // break;
             // printf("mean = %d\n", (int)cv::mean(depth_data.frame(roi))[0]);
             // cv::minMaxIdx(disp, &min, &max);
@@ -187,10 +190,11 @@ int main(int argc, char *argv[])
 
         cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
 
-        // printf("%3d\n", tmp);
         char key = static_cast<char>(cv::waitKey(1));
         if (key == 27 || key == 'q' || key == 'Q')
         { // ESC/Q
+
+            printf("\n");
             break;
         }
     }
