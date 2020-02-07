@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 
     // bool ok;
     // auto &&request = api->SelectStreamRequest(&ok); // ask user to select a stream
-    const StreamRequest request = StreamRequest(2 * width, height, Format::YUYV, 60);
+    const StreamRequest request = StreamRequest(2 * width, height, Format::YUYV, 30);
 
     // if (!ok) return 1;
     api->ConfigStreamRequest(request);
@@ -116,27 +116,28 @@ int main(int argc, char *argv[])
             cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
             cv::rectangle(disp8, roi, cv::Scalar(255, 255, 255), 2);
             cv::imshow("depth_real", disp8); // CV_16UC1
-            cv::Mat depth_cop = depth_data.frame(roi);
+            cv::Mat depth_cop = depth_data.frame(roi).clone();
             // depth_data.frame(roi).convertTo(depth_cop, CV_32F);
 
             // cv::Mat depth_cop2 = depth_cop.reshape(1, 1);
             // std::vector<float> depth_vector0 = (std::vector<float>)(depth_cop2);
 
-            int i, j, count[2] = {0, 0}, var;
+            int i, count[2] = {0, 0}, var;
 
             std::vector<float> depth_vector;
-            float tmp;
-            for (i = 0; i < ball_dets.h; i++)
-                for (j = 0; j < ball_dets.w; j++)
-                {
-                    tmp = (float)depth_cop.at<ushort>(i, j);
-                    // printf("%f ", tmp);
-                    // tmp = depth_vector0[i];
-                    if ((int)tmp != 0)
-                        depth_vector.push_back(tmp);
-                }
+            // float tmp;
+            ushort *p = depth_cop.ptr<ushort>();
+            for (i = 0; i < ball_dets.h * ball_dets.w; i++)
+            {
+                // tmp = (float)*p;
+                // printf("%f ", tmp);
+                // tmp = depth_vector0[i];
+                if (*p != 0)
+                    depth_vector.push_back((float)*p);
+                p++;
+            }
 
-            // printf("%d ", depth_vector.size());
+            // printf("\n%d ", depth_vector.size());
             // depth_cop.resize(ball_dets.w * ball_dets.h);
             cv::Mat labels;
             std::vector<int> centers;
@@ -149,7 +150,7 @@ int main(int argc, char *argv[])
                 // kmeans 只接收CV_32F
                 cv::kmeans(depth_vector, 2, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
 
-                for (i = 0; i < depth_vector.size(); i++)
+                for (size_t i = 0; i < depth_vector.size(); i++)
                 {
                     count[labels.data[i]]++;
                 }
