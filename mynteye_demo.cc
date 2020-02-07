@@ -45,7 +45,11 @@ int main(int argc, char *argv[])
 
     Context context;
     auto &&devices = context.devices();
-    size_t n = devices.size();
+    if(!devices.size())
+    {
+        printf("No device found!\n");
+        return 1;
+    }
     auto &&device = devices[0];
     std::shared_ptr<mynteye::API> api;
     api = API::Create(device);
