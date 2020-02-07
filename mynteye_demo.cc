@@ -31,6 +31,42 @@ MYNTEYE_USE_NAMESPACE
 const int width = 640;
 const int height = 400;
 
+int CountDistance(cv::Mat &mat, cv::Rect roi)
+{
+    cv::Mat depth_cop = mat(roi).clone();
+
+    int count[2] = {0, 0};
+
+    std::vector<float> depth_vector;
+    depth_vector.clear();
+
+    ushort *p = depth_cop.ptr<ushort>();
+    for (size_t i = 0; i < depth_cop.total(); i++)
+    {
+        if (*p != 0)
+            depth_vector.push_back((float)*p);
+        p++;
+    }
+
+    cv::Mat labels;
+    std::vector<int> centers;
+    if (depth_vector.size() < 2) // N < K 时
+    {
+        return 0;
+    }
+    else
+    {
+        // kmeans 只接收CV_32F
+        cv::kmeans(depth_vector, 2, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
+
+        for (size_t i = 0; i < depth_vector.size(); i++)
+        {
+            count[labels.data[i]]++;
+        }
+        return centers[0] > centers[1] ? centers[0] : centers[1];
+    }
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -45,7 +81,7 @@ int main(int argc, char *argv[])
 
     Context context;
     auto &&devices = context.devices();
-    if(!devices.size())
+    if (!devices.size())
     {
         printf("No device found!\n");
         return 1;
@@ -70,8 +106,6 @@ int main(int argc, char *argv[])
     api->SetDisparityComputingMethodType(DisparityComputingMethod::BM);
     // api->EnableStreamData(Stream::DISPARITY_NORMALIZED);
     api->EnableStreamData(Stream::DEPTH);
-    api->Start(Source::VIDEO_STREAMING);
-
     // auto exposure
     api->SetOptionValue(Option::EXPOSURE_MODE, 0);
     // max_gain: range [0,255], default 8
@@ -82,6 +116,8 @@ int main(int argc, char *argv[])
     api->SetOptionValue(Option::DESIRED_BRIGHTNESS, 122);
     // min_exposure_time: range [0,655], default 0
     api->SetOptionValue(Option::MIN_EXPOSURE_TIME, 0);
+    api->Start(Source::VIDEO_STREAMING);
+
     double fps;
     double t = 0.01;
     // std::cout << "fps:" << std::endl;
@@ -125,58 +161,59 @@ int main(int argc, char *argv[])
             cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
             cv::rectangle(disp8, roi, cv::Scalar(255, 255, 255), 2);
             cv::imshow("depth_real", disp8); // CV_16UC1
-            cv::Mat depth_cop = depth_data.frame(roi).clone();
-            // depth_data.frame(roi).convertTo(depth_cop, CV_32F);
+            int var = CountDistance(depth_data.frame, roi);
+            // cv::Mat depth_cop = depth_data.frame(roi).clone();
+            // // depth_data.frame(roi).convertTo(depth_cop, CV_32F);
 
-            // cv::Mat depth_cop2 = depth_cop.reshape(1, 1);
-            // std::vector<float> depth_vector0 = (std::vector<float>)(depth_cop2);
+            // // cv::Mat depth_cop2 = depth_cop.reshape(1, 1);
+            // // std::vector<float> depth_vector0 = (std::vector<float>)(depth_cop2);
 
-            int i, count[2] = {0, 0}, var;
+            // int count[2] = {0, 0}, var;
 
-            std::vector<float> depth_vector;
-            // float tmp;
-            ushort *p = depth_cop.ptr<ushort>();
-            for (i = 0; i < ball_dets.h * ball_dets.w; i++)
-            {
-                // tmp = (float)*p;
-                // printf("%f ", tmp);
-                // tmp = depth_vector0[i];
-                if (*p != 0)
-                    depth_vector.push_back((float)*p);
-                p++;
-            }
+            // std::vector<float> depth_vector;
+            // // float tmp;
+            // ushort *p = depth_cop.ptr<ushort>();
+            // for (size_t i = 0; i < depth_cop.total(); i++)
+            // {
+            //     // tmp = (float)*p;
+            //     // printf("%f ", tmp);
+            //     // tmp = depth_vector0[i];
+            //     if (*p != 0)
+            //         depth_vector.push_back((float)*p);
+            //     p++;
+            // }
 
-            // printf("\n%d ", depth_vector.size());
-            // depth_cop.resize(ball_dets.w * ball_dets.h);
-            cv::Mat labels;
-            std::vector<int> centers;
-            if (depth_vector.size() < 2) // N < K 时
-            {
-                var = 0;
-            }
-            else
-            {
-                // kmeans 只接收CV_32F
-                cv::kmeans(depth_vector, 2, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
+            // // printf("\n%d ", depth_vector.size());
+            // // depth_cop.resize(ball_dets.w * ball_dets.h);
+            // cv::Mat labels;
+            // std::vector<int> centers;
+            // if (depth_vector.size() < 2) // N < K 时
+            // {
+            //     var = 0;
+            // }
+            // else
+            // {
+            //     // kmeans 只接收CV_32F
+            //     cv::kmeans(depth_vector, 2, labels, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 5, 1.0), 3, cv::KMEANS_PP_CENTERS, centers);
 
-                for (size_t i = 0; i < depth_vector.size(); i++)
-                {
-                    count[labels.data[i]]++;
-                }
-                // printf("1=%d, %d 2=%d, %d\n", centers[0], count[0], centers[1], count[1]);
-                if (count[0] >= count[1]) //&& count[0] >= count[2])
-                {
-                    var = centers[0];
-                }
-                else //if(count[1] >= count[2])
-                {
-                    var = centers[1];
-                }
-                // else
-                // {
-                //     maxIDX = 2;
-                // }
-            }
+            //     for (size_t i = 0; i < depth_vector.size(); i++)
+            //     {
+            //         count[labels.data[i]]++;
+            //     }
+            //     // printf("1=%d, %d 2=%d, %d\n", centers[0], count[0], centers[1], count[1]);
+            //     if (count[0] >= count[1]) //&& count[0] >= count[2])
+            //     {
+            //         var = centers[0];
+            //     }
+            //     else //if(count[1] >= count[2])
+            //     {
+            //         var = centers[1];
+            //     }
+            //     // else
+            //     // {
+            //     //     maxIDX = 2;
+            //     // }
+            // }
 
             // // int var = Cluster(depth_cop, 7000, 0);
             double t_c = cv::getTickCount() / cv::getTickFrequency();
