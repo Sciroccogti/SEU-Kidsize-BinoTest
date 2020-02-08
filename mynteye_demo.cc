@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 
     if (!api)
         return 1;
-    api->EnablePlugin("libplugin_g_cuda10.0_opencv3.3.1.so");
+    //api->EnablePlugin("libplugin_g_cuda10.0_opencv3.3.1.so");
 
     // bool ok;
     // auto &&request = api->SelectStreamRequest(&ok); // ask user to select a stream
@@ -235,8 +235,6 @@ int main(int argc, char *argv[])
             // }
             // printf("%lf %lf\n", min, max);
         }
-
-        cv::Rect roi(ball_dets.x, ball_dets.y, ball_dets.w, ball_dets.h);
 
         char key = static_cast<char>(cv::waitKey(1));
         if (key == 27 || key == 'q' || key == 'Q')
