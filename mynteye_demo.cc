@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 
     if (!api)
         return 1;
+    api->EnablePlugin("libplugin_g_cuda10.0_opencv3.3.1.so");
 
     // bool ok;
     // auto &&request = api->SelectStreamRequest(&ok); // ask user to select a stream
